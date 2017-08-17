@@ -3,6 +3,7 @@ from discord.ext import commands
 import json
 import tbapy
 import random
+import asyncio
 
 with open("config.json", "r+") as f:
 	config = json.loads(f.read())
@@ -16,11 +17,37 @@ class namebot(commands.Bot):
 
 		self.picked = []
 		self.players = []
-		self.channel = '347587893952512000'
+		self.channel = 347587893952512000
 		self.is_playing = False
 		self.time = 0
 		self.current_turn = 0
 		self.lastdigit = 0
+
+		self.timer_loop = self.loop.create_task(self.timercheck())
+
+	async def timercheck(self):
+		await self.wait_until_ready()
+		while not self.is_closed():
+			if self.time is not 0:
+				self.time -= 1
+				print("Time Increment {0}".format(self.time))
+			if self.time == 15:
+				timer_embed = discord.Embed()
+				timer_embed.title = "Time is running out!"
+				player_string = ""
+				for player in bot.players:
+					if len(player_string) > 1:
+						player_string += ", "
+					player_string += player.display_name
+				timer_embed.add_field(name="Players", value=player_string)
+				timer_embed.add_field(name="Current Player", value = bot.players[bot.current_turn].mention)
+				timer_embed.add_field(name="Current Number", value = bot.lastdigit)
+				timer_embed.add_field(name="Time Left", value=bot.time)
+				send_channel = bot.get_channel(bot.channel)
+				await send_channel.send(embed=timer_embed)
+			await asyncio.sleep(1)
+
+
 
 
 
@@ -50,6 +77,7 @@ async def addplayer(ctx):
 	add_embed.add_field(name="Players", value=player_string)
 	add_embed.add_field(name="Current Player", value = bot.players[bot.current_turn].mention)
 	add_embed.add_field(name="Current Number", value = bot.lastdigit)
+	add_embed.add_field(name="Time Left", value=bot.time)
 	await ctx.send(embed=add_embed)
 
 
@@ -62,6 +90,7 @@ async def startround(ctx):
 	bot.players = []
 	bot.players.append(ctx.author)
 	bot.current_turn = 0
+	bot.time = 20
 	for player in ctx.message.mentions:
 		if player.bot:
 			await ctx.send("You can't invite bot users!")
