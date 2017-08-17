@@ -5,7 +5,7 @@ import tbapy
 import random
 
 with open("config.json", "r+") as f:
-	config = json.loads(f.read)
+	config = json.loads(f.read())
 
 tba = tbapy.TBA(config["tba_token"])
 
