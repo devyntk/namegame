@@ -26,7 +26,7 @@ class namebot(commands.Bot):
 		self.picked = []
 		self.strikes = {}
 		self.order = []
-		self.channel = 347587893952512000
+		self.channel = 347585645536870400
 		self.time = None
 		self.current_turn = None
 		self.lastdigit = 0
@@ -93,7 +93,7 @@ async def addplayer(ctx):
 
 
 @bot.command()
-async def startround(ctx):
+async def startround(ctx: commands.Context):
 	if bot.time is not None:
 		await ctx.send("A game is currently going on! Wait till the players finish up to start again.")
 		return
@@ -103,14 +103,15 @@ async def startround(ctx):
 	bot.current_turn = ctx.author
 	bot.order = []
 	bot.order.append(ctx.author)
-	bot.time = 20
+	bot.channel = ctx.channel.id
+	bot.time = 60
 	for player in ctx.message.mentions:
 		if player.bot:
 			await ctx.send("You can't invite bot users!")
 			continue
 		bot.strikes[player] = 0
 		bot.order.append(player)
-	num = random.randrange(0, 10)
+	num = 1
 	bot.lastdigit = num
 	start_embed = discord.Embed(title="FRC Name Game")
 	start_embed.description = "A game has been started! The info about the game is as follows:"
@@ -139,15 +140,19 @@ async def pick(ctx, team, *name):
 			await ctx.send("Let the people playing play! If you want to join, ask one of the people currently playing to excute `{0}addplayer @{1}`".format(bot.command_prefix, ctx.author.display_name))
 		return
 
-	if team[0] != bot.lastdigit:
+	if str(team[0]) != str(bot.lastdigit):
+		print(team)
+		print(bot.lastdigit)
 		await ctx.send("Your team doesn't start with the correct digit! Strike given, moving onto the next player!")
 		await SkipPlayer(ctx.author)
+		return
 	search_team = tba.team("frc"+team)
 	try:
 		search_team['key']
 	except KeyError:
 		await ctx.send("Team {0} doesn't exist! Strike given to the responsible player and player is skipped.".format(team))
 		await SkipPlayer(ctx.author)
+		return
 	ratio = fuzz.partial_ratio(name, search_team['nickname'])
 	print(ratio)
 	if ratio > 50:
@@ -167,7 +172,8 @@ async def pick(ctx, team, *name):
 		except IndexError:
 			bot.current_turn = bot.order[0]
 		correct_embed.add_field(title="Current Player",value=bot.current_turn.mention)
-		bot.lastdigit = team[:0]
+		bot.lastdigit = team[-1]
+		bot.time = 60
 		correct_embed.add_field(title="Current Number",value=bot.lastdigit)
 		correct_embed.add_field(title="Time Left",value=bot.time)
 		await ctx.send(embed=correct_embed)
