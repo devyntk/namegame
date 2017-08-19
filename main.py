@@ -5,6 +5,7 @@ import tbapy
 import random
 import asyncio
 import logging
+from fuzzywuzzy import fuzz
 
 with open("config.json", "r+") as f:
 	config = json.loads(f.read())
@@ -53,33 +54,7 @@ class namebot(commands.Bot):
 				send_channel = bot.get_channel(bot.channel)
 				await send_channel.send(embed=timer_embed)
 			if self.time == 0:
-				current_position = bot.order.index(bot.current_turn)
-				bot.strikes[bot.current_turn] += 1
-				if bot.strikes[bot.current_turn] == 3:
-					bot.order.pop(current_position)
-					bot.strikes.pop(bot.current_turn)
-				try:
-					bot.current_turn = bot.order[current_position + 1]
-				except IndexError:
-					bot.current_turn = bot.order[0]
-				self.time = 60
-
-				player_string = ""
-				for player in bot.order:
-					if len(player_string) > 1:
-						player_string += ", "
-					player_string += player.display_name
-				skip_embed = discord.Embed()
-				skip_embed.title = "Player {0} was skipped!".format(bot.order[current_position].display_name)
-				skip_embed.add_field(name="Players", value=player_string)
-				try:
-					skip_embed.add_field(name="Current Player", value=bot.current_turn.display_name)
-				except Exception as e:
-					print(e)
-				skip_embed.add_field(name="Current Number", value=bot.lastdigit)
-				skip_embed.add_field(name="Time Left", value=bot.time)
-				send_channel = bot.get_channel(bot.channel)
-				await send_channel.send(embed=skip_embed)
+				await SkipPlayer(bot.current_turn)
 			await asyncio.sleep(1)
 
 
@@ -164,8 +139,85 @@ async def pick(ctx, team, *name):
 			await ctx.send("Let the people playing play! If you want to join, ask one of the people currently playing to excute `{0}addplayer @{1}`".format(bot.command_prefix, ctx.author.display_name))
 		return
 
-	search_team = tba.team(team)
+	if team[0] != bot.lastdigit:
+		await ctx.send("Your team doesn't start with the correct digit! Strike given, moving onto the next player!")
+		await SkipPlayer(ctx.author)
+	search_team = tba.team("frc"+team)
+	try:
+		search_team['key']
+	except KeyError:
+		await ctx.send("Team {0} doesn't exist! Strike given to the responsible player and player is skipped.".format(team))
+		await SkipPlayer(ctx.author)
+	ratio = fuzz.partial_ratio(name, search_team['nickname'])
+	print(ratio)
+	if ratio > 50:
+		bot.picked.append(team)
+		correct_embed = discord.Embed()
+		correct_embed.title = "Team correct!"
+		correct_embed.description = "Team {0} was correct! Moving onto the next player as follows:"
+		player_string = ""
+		for player in bot.order:
+			if len(player_string) > 1:
+				player_string += ", "
+			player_string += player.display_name
+		correct_embed.add_field(title="Players", value=player_string)
+		current_position = bot.order.index(bot.current_turn)
+		try:
+			bot.current_turn = bot.order[current_position + 1]
+		except IndexError:
+			bot.current_turn = bot.order[0]
+		correct_embed.add_field(title="Current Player",value=bot.current_turn.mention)
+		bot.lastdigit = team[:0]
+		correct_embed.add_field(title="Current Number",value=bot.lastdigit)
+		correct_embed.add_field(title="Time Left",value=bot.time)
+		await ctx.send(embed=correct_embed)
 
+
+
+async def SkipPlayer(player: discord.Member):
+	bot.strikes[player] += 1
+	if bot.strikes[player] == 3:
+		bot.order.remove(player)
+		bot.strikes.pop(player)
+		send_channel = bot.get_channel(bot.channel)
+		await send_channel.send("Player {} is ELIMINATED!".format(player.mention))
+	current_position = bot.order.index(bot.current_turn)
+	try:
+		bot.current_turn = bot.order[current_position + 1]
+	except IndexError:
+		bot.current_turn = bot.order[0]
+	bot.time = 60
+	player_string = ""
+	for player in bot.order:
+		if len(player_string) > 1:
+			player_string += ", "
+		player_string += player.display_name
+	skip_embed = discord.Embed()
+	skip_embed.title = "Player {0} was skipped!".format(bot.order[current_position].display_name)
+	skip_embed.add_field(name="Players", value=player_string)
+	try:
+		skip_embed.add_field(name="Current Player", value=bot.current_turn.display_name)
+	except Exception as e:
+		print(e)
+	skip_embed.add_field(name="Current Number", value=bot.lastdigit)
+	skip_embed.add_field(name="Time Left", value=bot.time)
+	send_channel = bot.get_channel(bot.channel)
+	await send_channel.send(embed=skip_embed)
+	return
+
+async def check_win():
+	if len(bot.order) == 1:
+		win_embed = discord.Embed()
+		win_embed.title = "We have a winner!"
+		win_embed.add_field(name="Winning Player",value=bot.order[0])
+		picked_string = ""
+		for team in bot.picked:
+			if len(picked_string) > 0:
+				picked_string += ",  "
+			picked_string += team
+		win_embed.add_field(name="Teams Picked",value=picked_string)
+		send_channel = bot.get_channel(bot.channel)
+		await send_channel.send(embed=win_embed)
 
 
 bot.run(config["discord_token"])
