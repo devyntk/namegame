@@ -24,6 +24,7 @@ class namebot(commands.Bot):
 		super().__init__(*args,**kwargs)
 
 		self.picked = []
+		self.players = []
 		self.strikes = {}
 		self.order = []
 		self.channel = 347585645536870400
@@ -154,6 +155,12 @@ async def pick(ctx: commands.Context, team, *name):
 				await ctx.send("Player {} is ELIMINATED!".format(ctx.author.mention))
 		else:
 			await ctx.send("Let the people playing play! If you want to join, ask one of the people currently playing to excute `{0}addplayer @{1}`".format(bot.command_prefix, ctx.author.display_name))
+		return
+	if team == None:
+		await ctx.send("You have to actually say a team! The full command is `*pick <number> <name>. You haven't been given a strike for this, and it's still your turn.")
+		return
+	if name == None:
+		await ctx.send("You have to say a name too! The full command is `*pick <number> <name>. You haven't been given a strike for this, and it's still your turn.")
 		return
 	if int(bot.lastdigit) != 0:
 		if str(team[0]) != str(bot.lastdigit):
