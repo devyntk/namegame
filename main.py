@@ -60,9 +60,17 @@ class namebot(commands.Bot):
 
 bot = namebot(command_prefix='*')
 
-@bot.event
+@bot.listen()
 async def on_ready():
 	print("Logged in as {0}".format(bot.user))
+
+@bot.listen()
+async def on_reaction_add(reaction: discord.Reaction,user: discord.Member):
+	if user == bot.user:
+		return
+	if reaction.message.author == bot.user:
+		if user not in bot.order:
+			await reaction.message.remove_reaction(reaction.emoji, user)
 
 @bot.command()
 async def addplayer(ctx):
@@ -127,7 +135,7 @@ async def startround(ctx: commands.Context):
 
 
 @bot.command()
-async def pick(ctx, team, *name):
+async def pick(ctx: commands.Context, team, *name):
 	if ctx.author != bot.current_turn:
 		if ctx.author in bot.order:
 			await ctx.send("It's not your turn! You've been given a strike for this behaviour! Don't let it happen again...")
@@ -159,24 +167,62 @@ async def pick(ctx, team, *name):
 		bot.picked.append(team)
 		correct_embed = discord.Embed()
 		correct_embed.title = "Team correct!"
-		correct_embed.description = "Team {0} was correct! Moving onto the next player as follows:"
+		correct_embed.description = "Team {0} was correct! Moving onto the next player as follows:".format(team)
 		player_string = ""
 		for player in bot.order:
 			if len(player_string) > 1:
 				player_string += ", "
 			player_string += player.display_name
-		correct_embed.add_field(title="Players", value=player_string)
+		correct_embed.add_field(name="Players", value=player_string)
 		current_position = bot.order.index(bot.current_turn)
 		try:
 			bot.current_turn = bot.order[current_position + 1]
 		except IndexError:
 			bot.current_turn = bot.order[0]
-		correct_embed.add_field(title="Current Player",value=bot.current_turn.mention)
+		correct_embed.add_field(name="Current Player",value=bot.current_turn.mention)
 		bot.lastdigit = team[-1]
 		bot.time = 60
-		correct_embed.add_field(title="Current Number",value=bot.lastdigit)
-		correct_embed.add_field(title="Time Left",value=bot.time)
+		correct_embed.add_field(name="Current Number",value=bot.lastdigit)
+		correct_embed.add_field(name="Time Left",value=bot.time)
 		await ctx.send(embed=correct_embed)
+	else:
+		bot.time = None
+		vote_embed = discord.Embed()
+		vote_embed.title = "A vote is needed!"
+		vote_embed.description = "A player has made a choice with less than 50% similarity. The details of the pick are below. Click on the two emoji to vote if this is correct or not. A 50% majority of players is required to accept it, otherwise the player will get a strike."
+		vote_embed.add_field(name="Player",value=bot.current_turn.mention)
+		vote_embed.add_field(name="Team",value=team)
+		vote_embed.add_field(name="Said Name",value=name)
+		vote_embed.add_field(name="Actual Name",value=search_team['nickname'])
+		vote_embed.add_field(name="Similarity",value=str(ratio) + "%")
+		vote_time = 60
+		vote_embed.add_field(name="Voting Time",value=vote_time)
+		msg = await ctx.send(embed=vote_embed)
+		await msg.add_reaction('✅')
+		await msg.add_reaction('❌')
+		msg = await ctx.get_message(msg.id)
+		await asyncio.sleep(1)
+		while vote_time > 0:
+			accept = 0
+			deny = 0
+			msg = await ctx.get_message(msg.id)
+			for reaction in msg.reactions:
+				if reaction.emoji == '✅':
+					accept = reaction.count - 1
+				if reaction.emoji == '❌':
+					deny = reaction.count - 1
+			print(accept)
+			if accept >= .5 * len(bot.order):
+				print("win")
+				return
+			if deny >= .5 * len(bot.order):
+				print("skip")
+				return
+			vote_time -= 1
+			vote_embed.set_field_at(5, value = vote_time, name = "Voting Time")
+			await msg.edit(embed=vote_embed)
+			await asyncio.sleep(1)
+
 
 
 
@@ -209,6 +255,7 @@ async def SkipPlayer(player: discord.Member):
 	skip_embed.add_field(name="Time Left", value=bot.time)
 	send_channel = bot.get_channel(bot.channel)
 	await send_channel.send(embed=skip_embed)
+	await check_win()
 	return
 
 async def check_win():
@@ -224,6 +271,7 @@ async def check_win():
 		win_embed.add_field(name="Teams Picked",value=picked_string)
 		send_channel = bot.get_channel(bot.channel)
 		await send_channel.send(embed=win_embed)
+		bot.time = None
 
 
 bot.run(config["discord_token"])
