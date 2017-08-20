@@ -2,7 +2,7 @@ import discord
 from discord.ext import commands
 import json
 import tbapy
-import random
+import traceback
 import asyncio
 import logging
 from fuzzywuzzy import fuzz
@@ -79,6 +79,8 @@ async def on_command_error(ctx,error: commands.CommandError):
 	err_embed.title = "ERROR"
 	err_embed.description = "The bot has encountered a unhandled error."
 	err_embed.add_field(name="Error",value=error)
+	traceback.print_tb(error.__traceback__)
+	err_embed.add_field(name="Traceback",value=repr(traceback.extract_stack()))
 	await ctx.send(embed=err_embed)
 
 @bot.command()
@@ -149,7 +151,7 @@ async def pick(ctx: commands.Context, team, *name):
 		if ctx.author in bot.order:
 			await ctx.send("It's not your turn! You've been given a strike for this behaviour! Don't let it happen again...")
 			bot.strikes[ctx.author] += 1
-			if bot.strikes[ctx.author] == 3:
+			if bot.strikes[ctx.author] >= 3:
 				bot.order.remove(ctx.author)
 				bot.strikes.pop(ctx.author)
 				await ctx.send("Player {} is ELIMINATED!".format(ctx.author.mention))
@@ -169,6 +171,10 @@ async def pick(ctx: commands.Context, team, *name):
 			await ctx.send("Your team doesn't start with the correct digit! Strike given, moving onto the next player!")
 			await SkipPlayer(ctx.author)
 			return
+	if team in bot.picked:
+		await ctx.send("That team has already been picked! You have been skipped and given a strike.")
+		await SkipPlayer(ctx.author)
+		return
 	search_team = tba.team("frc"+team)
 	try:
 		search_team['key']
@@ -208,6 +214,8 @@ async def pick(ctx: commands.Context, team, *name):
 		await asyncio.sleep(1)
 		votetime = 20
 		while votetime > 0:
+			if bot.time > 50:
+				break
 			msg = await ctx.get_message(msg.id)
 			deny = 0
 			for reaction in msg.reactions:
@@ -216,7 +224,7 @@ async def pick(ctx: commands.Context, team, *name):
 			if deny > .5 * len(bot.order):
 				await ctx.send("The decision was overruled! Player {0} is given a strike!".format(ctx.author.mention))
 				bot.strikes[ctx.author] += 1
-				if bot.strikes[ctx.author] == 3:
+				if bot.strikes[ctx.author] >= 3:
 					bot.order.remove(ctx.author)
 					bot.strikes.pop(ctx.author)
 					await ctx.send("Player {} is ELIMINATED!".format(ctx.author.mention))
@@ -296,11 +304,6 @@ async def pick(ctx: commands.Context, team, *name):
 
 async def SkipPlayer(player: discord.Member):
 	bot.strikes[player] += 1
-	if bot.strikes[player] == 3:
-		bot.order.remove(player)
-		bot.strikes.pop(player)
-		send_channel = bot.get_channel(bot.channel)
-		await send_channel.send("Player {} is ELIMINATED!".format(player.mention))
 	current_position = bot.order.index(bot.current_turn)
 	try:
 		bot.current_turn = bot.order[current_position + 1]
@@ -313,7 +316,7 @@ async def SkipPlayer(player: discord.Member):
 			player_string += ", "
 		player_string += player.display_name
 	skip_embed = discord.Embed()
-	skip_embed.title = "Player {0} was skipped!".format(bot.order[current_position].display_name)
+	skip_embed.title = "Player {0} was skipped and now has {1} strike(s)!".format(bot.order[current_position].display_name, bot.strikes[player])
 	skip_embed.add_field(name="Players", value=player_string)
 	try:
 		skip_embed.add_field(name="Current Player", value=bot.current_turn.display_name)
@@ -323,6 +326,10 @@ async def SkipPlayer(player: discord.Member):
 	skip_embed.add_field(name="Time Left", value=bot.time)
 	send_channel = bot.get_channel(bot.channel)
 	await send_channel.send(embed=skip_embed)
+	if bot.strikes[player] > 2:
+		bot.order.remove(player)
+		bot.strikes.pop(player)
+		await send_channel.send("Player {} is ELIMINATED!".format(player.mention))
 	await check_win()
 	return
 
@@ -336,6 +343,8 @@ async def check_win():
 			if len(picked_string) > 0:
 				picked_string += ",  "
 			picked_string += team
+		if picked_string == "":
+			picked_string = "No Picked Teams"
 		win_embed.add_field(name="Teams Picked",value=picked_string)
 		send_channel = bot.get_channel(bot.channel)
 		await send_channel.send(embed=win_embed)
