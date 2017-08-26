@@ -2,6 +2,8 @@ import asyncio
 import json
 import logging
 import traceback
+import os
+import sys
 
 import discord
 import tbapy
@@ -45,7 +47,7 @@ class namebot(commands.Bot):
 					try:
 						if self.channels[channel].time is not None:
 							self.channels[channel].time -= 1
-							print("Time Increment {0} in {1}".format(self.channels[channel].time,channel))
+							print("Time Increment {0} in {1}".format(self.channels[channel].time, channel))
 
 						if self.channels[channel].time == 15:
 							timer_embed = discord.Embed()
@@ -75,7 +77,6 @@ class namebot(commands.Bot):
 class GameStatus(object):
 	def __init__(self):
 		self.picked = []
-		self.players = []
 		self.strikes = {}
 		self.order = []
 		self.channel = 0
@@ -110,8 +111,9 @@ async def on_command_error(ctx,error: commands.CommandError):
 
 @bot.command()
 async def addplayer(ctx):
+	print(bot.channels[ctx.channel.id].players)
 	for player in ctx.message.mentions:
-		if player in bot.channels[ctx.channel.id].players:
+		if player in bot.channels[ctx.channel.id].order:
 			await ctx.send("Player {} is already in the game!".format(player.mention))
 			continue
 		elif player.bot:
@@ -131,7 +133,10 @@ async def addplayer(ctx):
 		player_string += player.display_name
 	add_embed.add_field(name="Players", value=player_string)
 	add_embed.add_field(name="Current Player", value = bot.channels[ctx.channel.id].current_turn.mention)
-	add_embed.add_field(name="Current Number", value = bot.lastdigit)
+	startdigit = bot.channels[ctx.channel.id].last_digit
+	if startdigit == "0":
+		startdigit = "Wildcard"
+	add_embed.add_field(name="Current Number", value = startdigit)
 	add_embed.add_field(name="Time Left", value=bot.channels[ctx.channel.id].time)
 	await ctx.send(embed=add_embed)
 
@@ -156,9 +161,12 @@ async def startround(ctx: commands.Context):
 			if player.bot:
 				await ctx.send("You can't invite bot users!")
 				continue
+			if player == ctx.author:
+				await ctx.send("You can't invite yourself!")
+				continue
 			bot.channels[ctx.channel.id].strikes[player] = 0
 			bot.channels[ctx.channel.id].order.append(player)
-		bot.lastdigit = 0
+		bot.channels[ctx.channel.id].last_digit = 0
 		start_embed = discord.Embed(title="FRC Name Game")
 		start_embed.description = "A game has been started! The info about the game is as follows:"
 		player_string = ""
@@ -188,28 +196,28 @@ async def pick(ctx: commands.Context, team, *name):
 			await ctx.send("Let the people playing play! If you want to join, ask one of the people currently playing to excute `{0}addplayer @{1}`".format(bot.command_prefix, ctx.author.display_name))
 		return
 	if team == None:
-		await ctx.send("You have to actually say a team! The full command is `*pick <number> <name>. You haven't been given a strike for this, and it's still your turn.")
+		await ctx.send("You have to actually say a team! The full command is `*pick <number> <name>`. You haven't been given a strike for this, and it's still your turn.")
 		return
 	if name == None:
-		await ctx.send("You have to say a name too! The full command is `*pick <number> <name>. You haven't been given a strike for this, and it's still your turn.")
+		await ctx.send("You have to say a name too! The full command is `*pick <number> <name>`. You haven't been given a strike for this, and it's still your turn.")
 		return
-	if int(bot.lastdigit) != 0:
-		if str(team[0]) != str(bot.lastdigit):
+	if int(bot.channels[ctx.channel.id].last_digit) != 0:
+		if str(team[0]) != str(bot.channels[ctx.channel.id].last_digit):
 			print(team)
-			print(bot.lastdigit)
+			print(bot.channels[ctx.channel.id].last_digit)
 			await ctx.send("Your team doesn't start with the correct digit! Strike given, moving onto the next player!")
-			await SkipPlayer(ctx.author)
+			await SkipPlayer(ctx.channel, ctx.author)
 			return
 	if team in bot.channels[ctx.channel.id].picked:
 		await ctx.send("That team has already been picked! You have been skipped and given a strike.")
-		await SkipPlayer(ctx.author)
+		await SkipPlayer(ctx.channel, ctx.author)
 		return
 	search_team = tba.team("frc"+team)
 	try:
 		search_team['key']
 	except KeyError:
 		await ctx.send("Team {0} doesn't exist! Strike given to the responsible player and player is skipped.".format(team))
-		await SkipPlayer(ctx.author)
+		await SkipPlayer(ctx.channel, ctx.author)
 		return
 	ratio = fuzz.partial_ratio(search_team['nickname'].lower(), name.lower())
 	print("Ratio: " + str(ratio))
@@ -230,9 +238,9 @@ async def pick(ctx: commands.Context, team, *name):
 		except IndexError:
 			bot.channels[ctx.channel.id].current_turn = bot.channels[ctx.channel.id].order[0]
 		correct_embed.add_field(name="Current Player",value=bot.channels[ctx.channel.id].current_turn.mention)
-		bot.lastdigit = team[-1]
+		bot.channels[ctx.channel.id].last_digit = team[-1]
 		bot.channels[ctx.channel.id].time = 60
-		startdigit = bot.lastdigit
+		startdigit = bot.channels[ctx.channel.id].last_digit
 		if startdigit == "0":
 			startdigit = "Wildcard"
 		correct_embed.add_field(name="Current Number", value=startdigit)
@@ -306,9 +314,9 @@ async def pick(ctx: commands.Context, team, *name):
 				except IndexError:
 					bot.channels[ctx.channel.id].current_turn = bot.channels[ctx.channel.id].order[0]
 				correct_embed.add_field(name="Current Player", value=bot.channels[ctx.channel.id].current_turn.mention)
-				bot.lastdigit = team[-1]
+				bot.channels[ctx.channel.id].last_digit = team[-1]
 				bot.channels[ctx.channel.id].time = 60
-				startdigit = bot.lastdigit
+				startdigit = bot.channels[ctx.channel.id].last_digit
 				if startdigit == "0":
 					startdigit = "Wildcard"
 				correct_embed.add_field(name="Current Number", value=startdigit)
@@ -348,10 +356,10 @@ async def SkipPlayer(channel, player: discord.Member):
 	skip_embed.title = "Player {0} was skipped and now has {1} strike(s)!".format(bot.channels[channel.id].order[current_position].display_name, bot.channels[channel.id].strikes[player])
 	skip_embed.add_field(name="Players", value=player_string)
 	try:
-		skip_embed.add_field(name="Current Player", value=bot.channels[channel.id].current_turn.display_name)
+		skip_embed.add_field(name="Current Player", value=bot.channels[channel.id].current_turn.mention)
 	except Exception as e:
 		print(e)
-	skip_embed.add_field(name="Current Number", value=bot.lastdigit)
+	skip_embed.add_field(name="Current Number", value=bot.channels[channel.id].last_digit)
 	skip_embed.add_field(name="Time Left", value=bot.channels[channel.id].time)
 	send_channel = bot.get_channel(bot.channels[channel.id].channel)
 	await send_channel.send(embed=skip_embed)
@@ -392,7 +400,7 @@ async def gameinfo(ctx):
 				player_string += ", "
 			player_string += "{0}:{1}".format(player.display_name, bot.channels[ctx.channel.id].strikes[player])
 		info_embed.add_field(name="Strikes", value=player_string)
-		startdigit = bot.lastdigit
+		startdigit = bot.channels[ctx.channel.id].last_digit
 		if startdigit == "0":
 			startdigit = "Wildcard"
 		info_embed.add_field(name="Current Number", value=startdigit)
@@ -423,5 +431,9 @@ async def info(ctx):
 	game_embed.add_field(name="Pesky Commands",value="To start a game, type *startround and mention the players you want to play with. You can add people with *addplayer. When it's your turn, type *pick <team> <teamname> to execute your pick. You can always do *gameinfo to get the current game status.")
 	await ctx.send(embed=game_embed)
 
+@bot.command()
+async def restart(ctx):
+	await ctx.send("Restarting Bot...")
+	os.execl(sys.executable, sys.executable, *sys.argv)
 
 bot.run(config["discord_token"])
