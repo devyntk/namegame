@@ -407,7 +407,9 @@ async def gameinfo(ctx):
 		info_embed.add_field(name="Current Player", value=bot.channels[ctx.channel.id].current_turn.display_name)
 		info_embed.add_field(name="Time Left", value=bot.channels[ctx.channel.id].time)
 		picked_string = ""
-		for team in bot.channels[ctx.channel.id].picked:
+		picked_teams = bot.channels[ctx.channel.id].picked
+		picked_teams.sort()
+		for team in picked_teams:
 			if len(picked_string) > 0:
 				picked_string += ",  "
 			picked_string += team
