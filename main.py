@@ -348,10 +348,10 @@ async def SkipPlayer(channel, player: discord.Member):
 		bot.channels[channel.id].current_turn = bot.channels[channel.id].order[0]
 	bot.channels[channel.id].time = 60
 	player_string = ""
-	for player in bot.channels[channel.id].order:
+	for playertest in bot.channels[channel.id].order:
 		if len(player_string) > 1:
 			player_string += ", "
-		player_string += player.display_name
+		player_string += playertest.display_name
 	skip_embed = discord.Embed()
 	skip_embed.title = "Player {0} was skipped and now has {1} strike(s)!".format(bot.channels[channel.id].order[current_position].display_name, bot.channels[channel.id].strikes[player])
 	skip_embed.add_field(name="Players", value=player_string)
