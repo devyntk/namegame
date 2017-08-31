@@ -394,6 +394,7 @@ async def drop(ctx):
 	await ctx.send("Player {} is ELIMINATED!".format(ctx.author.mention))
 	if len(bot.channels[ctx.channel.id].order) == 0:
 		await ctx.send("Game Dispanded. No winner called.")
+		bot.channels.pop(ctx.channel.id)
 		return
 	info_embed = discord.Embed()
 	info_embed.title = "Current Game Info"
