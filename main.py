@@ -51,6 +51,7 @@ class namebot(commands.Bot):
 
 						if self.channels[channel].time == 15:
 							timer_embed = discord.Embed()
+							timer_embed = discord.Color().orange()
 							timer_embed.title = "Time is running out!"
 							player_string = ""
 							for player in bot.channels[channel].order:
@@ -125,6 +126,7 @@ async def addplayer(ctx):
 		await ctx.send("There's not a game going on! Start one with `*startround`")
 		return
 	add_embed = discord.Embed()
+	add_embed.color = discord.Color.blurple()
 	add_embed.description = "Players have been added to the game. See below for an updated player list."
 	player_string = ""
 	for player in bot.channels[ctx.channel.id].order:
@@ -168,6 +170,7 @@ async def startround(ctx: commands.Context):
 			bot.channels[ctx.channel.id].order.append(player)
 		bot.channels[ctx.channel.id].last_digit = 0
 		start_embed = discord.Embed(title="FRC Name Game")
+		start_embed.color = discord.Color.green()
 		start_embed.description = "A game has been started! The info about the game is as follows:"
 		player_string = ""
 		for player in bot.channels[ctx.channel.id].order:
@@ -224,6 +227,7 @@ async def pick(ctx: commands.Context, team, *name):
 	if ratio > 60:
 		bot.channels[ctx.channel.id].picked.append(team)
 		correct_embed = discord.Embed()
+		correct_embed.color = discord.Color.green()
 		correct_embed.title = "Team correct!"
 		correct_embed.description = "Team {0} was {1}% correct! Moving onto the next player as follows. Click the red X to override this decision.".format(team, ratio)
 		player_string = ""
@@ -274,6 +278,7 @@ async def pick(ctx: commands.Context, team, *name):
 	else:
 		bot.channels[ctx.channel.id].time = -1
 		vote_embed = discord.Embed()
+		vote_embed.color = discord.Color.gold()
 		vote_embed.title = "A vote is needed!"
 		vote_embed.description = "A player has made a choice with less than 50% similarity. The details of the pick are below. Click on the two emoji to vote if this is correct or not. A 50% majority of players is required to accept it, otherwise the player will get a strike."
 		vote_embed.add_field(name="Player",value=bot.channels[ctx.channel.id].current_turn.mention)
@@ -301,6 +306,7 @@ async def pick(ctx: commands.Context, team, *name):
 				bot.channels[ctx.channel.id].picked.append(team)
 				correct_embed = discord.Embed()
 				correct_embed.title = "Team correct!"
+				correct_embed.color = discord.Color.green()
 				correct_embed.description = "Team {0} was correct! Moving onto the next player as follows:".format(team)
 				player_string = ""
 				for player in bot.channels[ctx.channel.id].order:
@@ -353,6 +359,7 @@ async def SkipPlayer(channel, player: discord.Member):
 			player_string += ", "
 		player_string += playertest.display_name
 	skip_embed = discord.Embed()
+	skip_embed.color = discord.Color.red()
 	skip_embed.title = "Player {0} was skipped and now has {1} strike(s)!".format(bot.channels[channel.id].order[current_position].display_name, bot.channels[channel.id].strikes[player])
 	skip_embed.add_field(name="Players", value=player_string)
 	try:
@@ -370,9 +377,55 @@ async def SkipPlayer(channel, player: discord.Member):
 	await check_win(channel.id)
 	return
 
+@bot.command()
+async def skip(ctx):
+	if ctx.author in bot.channels[ctx.channel.id].order:
+		await SkipPlayer(ctx.channel, bot.channels[ctx.channel.id].current_turn)
+	else:
+		await ctx.send("You can't skip someone if you're not in the game!")
+
+@bot.command()
+async def drop(ctx):
+	if ctx.author not in bot.channels[ctx.channel.id].order:
+		await ctx.send("You can't leave a game you're not in!")
+		return
+	bot.channels[ctx.channel.id].order.remove(ctx.author)
+	bot.channels[ctx.channel.id].strikes.pop(ctx.author)
+	await ctx.send("Player {} is ELIMINATED!".format(ctx.author.mention))
+	if len(bot.channels[ctx.channel.id].order) == 0:
+		await ctx.send("Game Dispanded. No winner called.")
+		return
+	info_embed = discord.Embed()
+	info_embed.title = "Current Game Info"
+	player_string = ""
+	for player in bot.channels[ctx.channel.id].strikes.keys():
+		if len(player_string) > 1:
+			player_string += ", "
+		player_string += "{0}:{1}".format(player.display_name, bot.channels[ctx.channel.id].strikes[player])
+	info_embed.add_field(name="Strikes", value=player_string)
+	startdigit = bot.channels[ctx.channel.id].last_digit
+	if startdigit == "0":
+		startdigit = "Wildcard"
+	info_embed.add_field(name="Current Number", value=startdigit)
+	info_embed.add_field(name="Current Player", value=bot.channels[ctx.channel.id].current_turn.display_name)
+	info_embed.add_field(name="Time Left", value=bot.channels[ctx.channel.id].time)
+	picked_string = ""
+	picked_teams = bot.channels[ctx.channel.id].picked
+	picked_teams.sort()
+	for team in picked_teams:
+		if len(picked_string) > 0:
+			picked_string += ",  "
+		picked_string += team
+	if picked_string == "":
+		picked_string = "No teams picked yet."
+	info_embed.add_field(name="Teams Picked", value=picked_string)
+	await ctx.send(embed=info_embed)
+	await check_win(ctx.channel.id)
+
 async def check_win(channel_id):
 	if len(bot.channels[channel_id].order) == 1:
 		win_embed = discord.Embed()
+		win_embed.color = discord.Color.gold()
 		win_embed.title = "We have a winner!"
 		win_embed.add_field(name="Winning Player",value=bot.channels[channel_id].order[0])
 		picked_string = ""
@@ -391,9 +444,9 @@ async def check_win(channel_id):
 @bot.command()
 async def gameinfo(ctx):
 	try:
-		time = bot.channels[ctx.channel.id].time
 		info_embed = discord.Embed()
 		info_embed.title = "Current Game Info"
+		info_embed.color = discord.Color.blue()
 		player_string = ""
 		for player in bot.channels[ctx.channel.id].strikes.keys():
 			if len(player_string) > 1:
@@ -423,6 +476,7 @@ async def gameinfo(ctx):
 @bot.command()
 async def info(ctx):
 	game_embed = discord.Embed()
+	game_embed.color = discord.Color.magenta()
 	game_embed.title="How to play"
 	game_embed.description = "This is a very simple little game where players will name name a team number and name that starts with the last digit of the last named team. Some more specific rules are below:"
 	game_embed.add_field(name="No Double Picking", value="Only pick teams once.")
@@ -435,7 +489,8 @@ async def info(ctx):
 
 @bot.command()
 async def restart(ctx):
-	await ctx.send("Restarting Bot...")
-	os.execl(sys.executable, sys.executable, *sys.argv)
+	if ctx.author.permissions_in(ctx.channel).manage_messages:
+		await ctx.send("Restarting Bot...")
+		os.execl(sys.executable, sys.executable, *sys.argv)
 
 bot.run(config["discord_token"])
