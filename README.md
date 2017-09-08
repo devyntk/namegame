@@ -4,7 +4,16 @@ Are you a FIRST Addict? This is the game for you! Originally developed for the [
 
 # Invite
 
-The bot is available for you to add to your own server! Needs reaction perms.
+The bot is available for you to add to your own server! 
 
 Click the following link to add this bot to your server!
 https://discordapp.com/oauth2/authorize?response_type=code&client_id=347586255619489803&scope=bot
+
+If it's not responding, make sure you have the following perms enabled for the bot:
+```Add Reactions
+Embed Links
+Manage Messages
+Read Message History
+Read Messages
+Send Messages
+```
