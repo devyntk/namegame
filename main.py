@@ -80,6 +80,7 @@ class GameStatus(object):
 		self.picked = []
 		self.strikes = {}
 		self.order = []
+		self.removed = []
 		self.channel = 0
 		self.time = None
 		self.current_turn = None
@@ -113,18 +114,21 @@ async def on_command_error(ctx,error: commands.CommandError):
 @bot.command()
 async def addplayer(ctx):
 	print(bot.channels[ctx.channel.id].players)
+	if bot.channels[ctx.channel.id].time is None:
+		await ctx.send("There's not a game going on! Start one with `*startround`")
+		return
 	for player in ctx.message.mentions:
 		if player in bot.channels[ctx.channel.id].order:
 			await ctx.send("Player {} is already in the game!".format(player.mention))
+			continue
+		elif player in bot.channel[ctx.channel.id].removed:
+			await ctx.send("That player is already out of the game and can't be added back in.")
 			continue
 		elif player.bot:
 			await ctx.send("You can't invite bot users!")
 			continue
 		bot.channels[ctx.channel.id].strikes[player] = 0
 		bot.channels[ctx.channel.id].order.append(player)
-	if bot.channels[ctx.channel.id].time is None:
-		await ctx.send("There's not a game going on! Start one with `*startround`")
-		return
 	add_embed = discord.Embed()
 	add_embed.color = discord.Color.blurple()
 	add_embed.description = "Players have been added to the game. See below for an updated player list."
@@ -194,6 +198,7 @@ async def pick(ctx: commands.Context, team, *name):
 			if bot.channels[ctx.channel.id].strikes[ctx.author] >= 3:
 				bot.channels[ctx.channel.id].order.remove(ctx.author)
 				bot.channels[ctx.channel.id].strikes.pop(ctx.author)
+				bot.channels[ctx.channel.id].removed.append(ctx.author)
 				await ctx.send("Player {} is ELIMINATED!".format(ctx.author.mention))
 		else:
 			await ctx.send("Let the people playing play! If you want to join, ask one of the people currently playing to excute `{0}addplayer @{1}`".format(bot.command_prefix, ctx.author.display_name))
@@ -268,6 +273,7 @@ async def pick(ctx: commands.Context, team, *name):
 				if bot.channels[ctx.channel.id].strikes[ctx.author] >= 3:
 					bot.channels[ctx.channel.id].order.remove(ctx.author)
 					bot.channels[ctx.channel.id].strikes.pop(ctx.author)
+					bot.channels[ctx.channel.id].removed.append(ctx.author)
 					await ctx.send("Player {} is ELIMINATED!".format(ctx.author.mention))
 				return
 			votetime -= 1
@@ -373,6 +379,7 @@ async def SkipPlayer(channel, player: discord.Member):
 	if bot.channels[channel.id].strikes[player] > 2:
 		bot.channels[channel.id].order.remove(player)
 		bot.channels[channel.id].strikes.pop(player)
+		bot.channels[channel.id].removed.append(player)
 		await send_channel.send("Player {} is ELIMINATED!".format(player.mention))
 	await check_win(channel.id)
 	return
@@ -391,6 +398,7 @@ async def drop(ctx):
 		return
 	bot.channels[ctx.channel.id].order.remove(ctx.author)
 	bot.channels[ctx.channel.id].strikes.pop(ctx.author)
+	bot.channels[ctx.channel.id].removed.append(ctx.author)
 	await ctx.send("Player {} is ELIMINATED!".format(ctx.author.mention))
 	if len(bot.channels[ctx.channel.id].order) == 0:
 		await ctx.send("Game Dispanded. No winner called.")
@@ -451,11 +459,11 @@ async def gameinfo(ctx):
 		player_string = ""
 		for player in bot.channels[ctx.channel.id].strikes.keys():
 			if len(player_string) > 1:
-				player_string += ", "
+				player_string += "\n"
 			player_string += "{0}:{1}".format(player.display_name, bot.channels[ctx.channel.id].strikes[player])
 		info_embed.add_field(name="Strikes", value=player_string)
 		startdigit = bot.channels[ctx.channel.id].last_digit
-		if startdigit == "0":
+		if str(startdigit) == "0":
 			startdigit = "Wildcard"
 		info_embed.add_field(name="Current Number", value=startdigit)
 		info_embed.add_field(name="Current Player", value=bot.channels[ctx.channel.id].current_turn.display_name)
@@ -493,5 +501,10 @@ async def restart(ctx):
 	if ctx.author.permissions_in(ctx.channel).manage_messages:
 		await ctx.send("Restarting Bot...")
 		os.execl(sys.executable, sys.executable, *sys.argv)
+
+
+@bot.command()
+async def invite(ctx):
+	await ctx.send("Want Name Bot on your own server? Invite me at <https://discordapp.com/oauth2/authorize?client_id=347586255619489803&scope=bot&permissions=93248>! ")
 
 bot.run(config["discord_token"])
