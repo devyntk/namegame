@@ -45,13 +45,14 @@ class namebot(commands.Bot):
 			if self.channels != {}:
 				for channel in self.channels.keys():
 					try:
-						if self.channels[channel].time is not None:
+
+						if self.channels[channel].time >= 0:
 							self.channels[channel].time -= 1
 							print("Time Increment {0} in {1}".format(self.channels[channel].time, channel))
 
 						if self.channels[channel].time == 15:
 							timer_embed = discord.Embed()
-							timer_embed = discord.Color().orange()
+							timer_embed.color = discord.Color.orange()
 							timer_embed.title = "Time is running out!"
 							player_string = ""
 							for player in bot.channels[channel].order:
@@ -208,6 +209,9 @@ async def pick(ctx: commands.Context, team, *name):
 		return
 	if name == None:
 		await ctx.send("You have to say a name too! The full command is `*pick <number> <name>`. You haven't been given a strike for this, and it's still your turn.")
+		return
+	if bot.channels[ctx.channel.id].time <0:
+		await ctx.send("Vote on the current team before picking the next!")
 		return
 	if int(bot.channels[ctx.channel.id].last_digit) != 0:
 		if str(team[0]) != str(bot.channels[ctx.channel.id].last_digit):
