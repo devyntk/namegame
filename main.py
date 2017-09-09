@@ -121,7 +121,7 @@ async def addplayer(ctx):
 		if player in bot.channels[ctx.channel.id].order:
 			await ctx.send("Player {} is already in the game!".format(player.mention))
 			continue
-		elif player in bot.channel[ctx.channel.id].removed:
+		elif player in bot.channels[ctx.channel.id].removed:
 			await ctx.send("That player is already out of the game and can't be added back in.")
 			continue
 		elif player.bot:
