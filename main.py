@@ -511,4 +511,10 @@ async def restart(ctx):
 async def invite(ctx):
 	await ctx.send("Want Name Bot on your own server? Invite me at <https://discordapp.com/oauth2/authorize?client_id=347586255619489803&scope=bot&permissions=93248>! ")
 
+bot.remove_command('help')
+
+@bot.command()
+async def help(ctx):
+	await ctx.bot.get_command('info').callback(ctx)
+
 bot.run(config["discord_token"])
