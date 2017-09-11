@@ -517,4 +517,14 @@ bot.remove_command('help')
 async def help(ctx):
 	await ctx.bot.get_command('info').callback(ctx)
 
+@bot.command()
+async def update(ctx):
+	"""Pulls code from GitHub and restarts."""
+	res = os.popen("git pull origin master").read()
+	if res.startswith('Already up-to-date.'):
+		await ctx.send('```\n' + res + '```')
+	else:
+		await ctx.send('```\n' + res + '```')
+		await ctx.bot.get_command('restart').callback(ctx)
+
 bot.run(config["discord_token"])
