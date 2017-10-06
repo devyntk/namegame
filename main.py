@@ -238,7 +238,7 @@ async def pick(ctx: commands.Context, team, *name):
 		correct_embed = discord.Embed()
 		correct_embed.color = discord.Color.green()
 		correct_embed.title = "Team correct!"
-		correct_embed.description = "Team {0} was {1}% correct! Moving onto the next player as follows. Click the red X to override this decision.".format(team, ratio)
+		correct_embed.description = "Team {0} ({2}) was {1}% correct! Moving onto the next player as follows. Click the red X to override this decision.".format(team, ratio,search_team['nickname'])
 		player_string = ""
 		for player in bot.channels[ctx.channel.id].order:
 			if len(player_string) > 1:
