@@ -439,10 +439,22 @@ async def drop(ctx):
 
 async def check_win(channel_id):
 	if len(bot.channels[channel_id].order) == 1:
+		with open("leaderboard.json", "a+") as f:
+			try:
+				leaderboard = json.load(f)
+			except json.JSONDecodeError:
+				leaderboard = {}
+
+			try:
+				leaderboard[bot.channels[channel_id].order[0].id] += 1
+			except KeyError:
+				leaderboard[bot.channels[channel_id].order[0].id] = 1
+			f.write(json.dumps(leaderboard))
 		win_embed = discord.Embed()
 		win_embed.color = discord.Color.gold()
 		win_embed.title = "We have a winner!"
 		win_embed.add_field(name="Winning Player",value=bot.channels[channel_id].order[0])
+		win_embed.add_field(name="Wins Total", value=leaderboard[bot.channels[channel_id].order[0].id])
 		picked_string = ""
 		for team in bot.channels[channel_id].picked:
 			if len(picked_string) > 0:
@@ -528,5 +540,17 @@ async def update(ctx):
 	else:
 		await ctx.send('```\n' + res + '```')
 		await ctx.bot.get_command('restart').callback(ctx)
+
+@bot.command()
+async def leaderboard(ctx):
+	with open("leaderboard.json", "r+") as f:
+		leaderboard = json.loads(f.read())
+	embed = discord.Embed()
+	embed.title = "Current Global Leaderboard"
+	for id, score in leaderboard.items():
+		name = await ctx.bot.get_user_info(id)
+		print(name)
+		embed.add_field(name=name.display_name, value=score)
+	await ctx.send(embed=embed)
 
 bot.run(config["discord_token"])
