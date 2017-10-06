@@ -403,6 +403,8 @@ async def drop(ctx):
 	bot.channels[ctx.channel.id].order.remove(ctx.author)
 	bot.channels[ctx.channel.id].strikes.pop(ctx.author)
 	bot.channels[ctx.channel.id].removed.append(ctx.author)
+	if bot.channels[ctx.ctx.channel.id].current_player == ctx.author:
+		await SkipPlayer(ctx.channel, bot.channels[ctx.channel.id].current_turn)
 	await ctx.send("Player {} is ELIMINATED!".format(ctx.author.mention))
 	if len(bot.channels[ctx.channel.id].order) == 0:
 		await ctx.send("Game Dispanded. No winner called.")
