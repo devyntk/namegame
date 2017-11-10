@@ -42,39 +42,43 @@ class namebot(commands.Bot):
 	async def timercheck(self):
 		await self.wait_until_ready()
 		while not self.is_closed():
-			if self.channels != {}:
-				for channel in self.channels.keys():
-					try:
+			try:
+				if self.channels != {}:
+					for channel in self.channels.keys():
+						try:
 
-						if self.channels[channel].time >= 0:
-							self.channels[channel].time -= 1
-							print("Time Increment {0} in {1}".format(self.channels[channel].time, channel))
+							if self.channels[channel].time >= 0:
+								self.channels[channel].time -= 1
+								print("Time Increment {0} in {1}".format(self.channels[channel].time, channel))
 
-						if self.channels[channel].time == 15:
-							timer_embed = discord.Embed()
-							timer_embed.color = discord.Color.orange()
-							timer_embed.title = "Time is running out!"
-							player_string = ""
-							for player in bot.channels[channel].order:
-								if len(player_string) > 1:
-									player_string += ", "
-								player_string += player.display_name
-							timer_embed.add_field(name="Players", value=player_string)
-							timer_embed.add_field(name="Current Player", value = bot.channels[channel].current_turn.mention)
-							timer_embed.add_field(name="Current Number", value = bot.channels[channel].lastdigit)
-							timer_embed.add_field(name="Time Left", value=bot.channels[channel].time)
-							send_channel = bot.get_channel(channel)
-							await send_channel.send(embed=timer_embed)
+							if self.channels[channel].time == 15:
+								timer_embed = discord.Embed()
+								timer_embed.color = discord.Color.orange()
+								timer_embed.title = "Time is running out!"
+								player_string = ""
+								for player in bot.channels[channel].order:
+									if len(player_string) > 1:
+										player_string += ", "
+									player_string += player.display_name
+								timer_embed.add_field(name="Players", value=player_string)
+								timer_embed.add_field(name="Current Player", value = bot.channels[channel].current_turn.mention)
+								timer_embed.add_field(name="Current Number", value = bot.channels[channel].lastdigit)
+								timer_embed.add_field(name="Time Left", value=bot.channels[channel].time)
+								send_channel = bot.get_channel(channel)
+								await send_channel.send(embed=timer_embed)
 
-						if self.channels[channel].time == 0:
-							send_channel = bot.get_channel(channel)
-							await SkipPlayer(send_channel, bot.channels[channel].current_turn)
-					except Exception as e:
-						print(e)
+							if self.channels[channel].time == 0:
+								send_channel = bot.get_channel(channel)
+								await SkipPlayer(send_channel, bot.channels[channel].current_turn)
+						except Exception as e:
+							print(e)
 
-				await asyncio.sleep(1)
-			else:
-				await asyncio.sleep(1)
+					await asyncio.sleep(1)
+				else:
+					await asyncio.sleep(1)
+			except Exception as e:
+				print(e)
+				asyncio.sleep(.1)
 
 class GameStatus(object):
 	def __init__(self):
@@ -404,6 +408,7 @@ async def drop(ctx):
 	bot.channels[ctx.channel.id].strikes.pop(ctx.author)
 	bot.channels[ctx.channel.id].removed.append(ctx.author)
 	if bot.channels[ctx.ctx.channel.id].current_player == ctx.author:
+		#TODO: make this better so it doesn't crash the damn bot
 		await SkipPlayer(ctx.channel, bot.channels[ctx.channel.id].current_turn)
 	await ctx.send("Player {} is ELIMINATED!".format(ctx.author.mention))
 	if len(bot.channels[ctx.channel.id].order) == 0:
